@@ -7,7 +7,7 @@ DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-devlog}"
 DB_USER="${DB_USER:-postgres}"
 DATA_DIR="${STORAGE_PATH:-/data/attachments}"
-BACKUP_DIR="./backupdir"
+BACKUP_DIR="/home/backupdir"
 newfile="${BACKUP_DIR}/${name}.txt"
 #we will not be installing utilities on this cuz docker image build has all dependancies installed
 
@@ -54,11 +54,16 @@ Handle_notes (){
          sleep 1
          ;; 
          2) 
-         read -rp "Enter the note to update "
+         read -rp "Enter the filename (note) to update " notename 
+         read -rp echo "Enter the text to update the file: " text 
          #fetch the file name and then open that particular file from the db and then push it 
          #as the local file is stored inside the local machine the remote does also have the same content, just update the local files and push to remote
          #first list all the files that are stored and select one and update the notes
-
+         #enter file name newfile
+         decrypt_localfiles "${notename}"
+         while read -r notename ; do
+            printf '%s\n' "${text}" | tee -a "${notename}" >/dev/null
+         done
          sleep 1
          ;;
          3) read -rp "Retreive all the notes from the database " 
@@ -89,8 +94,14 @@ encrypt_localfiles (){
     #encrypt the file using age
     age -r "${recipient}" -o "${newfile}.age" "${newfile}"
 }
+privatekeyfilepath="/home/.config/age/"
 decrypt_localfiles (){
-
+    local filename=$1  #notename
+    #add the decryption logic for decrypting the files
+    age --decrypt \
+    --identity "${privatekeyfilepath}/${filename}.txt" \
+    --output "${BACKUP_DIR}/restored-note.txt" \
+    "${BACKUP_DIR}/${newfile}.txt.age"
 }
 
 main (){
