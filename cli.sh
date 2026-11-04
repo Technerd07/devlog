@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+#set -euo pipefail
 
 # Database connection variables with defaults
 DB_HOST="${DB_HOST:-localhost}"
@@ -17,6 +17,7 @@ echo "Take,Update,Retreive,your notes your way :)"
 echo "1: Write a new note"
 echo "2: update the note selected"
 echo "3: Retrevie all the notes selected"
+echo "4: EXIT"
 }
 
 Handle_notes (){ 
@@ -33,7 +34,7 @@ Handle_notes (){
 
     while true; do
      func_ui
-     echo "enter options [1-3]: "
+     echo "enter options [1-4]: "
      read -r options
      case "${options}" in 
          1) 
@@ -111,12 +112,17 @@ Handle_notes (){
          #working on it...
          #list all the files from the backupdir
          if [[ -d "${BACKUP_DIR}" ]]; then
-            ls -al "${BACKUP_DIR}"/*.txt.age >/dev/null/ | awk -F '/' '{print $NF}' | sed 's/\.txt\.age$//'
+            find "$BACKUP_DIR" -maxdepth 1 -type f -name '*.txt.age' -print | awk -F '/' '{print $NF}' | sed 's/\.txt\.age$//'
             else
              echo "Directory doesnot exist"
          fi
          sleep 1
-        esac
+         ;;
+        4)
+         printf '%s\n' "Goodbye :)"
+         break
+          ;;
+    esac
   done
 }
 encrypt_localfiles (){ 
