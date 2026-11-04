@@ -55,15 +55,24 @@ Handle_notes (){
          ;; 
          2) 
          read -rp "Enter the filename (note) to update " notename 
-         read -rp echo "Enter the text to update the file: " text 
+         while read notename; do
+            if [ -n "${notename}" ];then
+                #check wether the entered name of the file exists on the backupdir
+                agefile="${BACKUP_DIR}/${notename}"
+                if [ ! -f "${agefile}.txt.age" ]; then
+                    echo "File doesnot exist on the path "
+                  else
+                        decrypt_localfiles "${agefile}"
+                fi
+                else 
+                echo "Note name cant be null, Please enter Note Name correctly"
+                return 1
+            fi
+         done
          #fetch the file name and then open that particular file from the db and then push it 
          #as the local file is stored inside the local machine the remote does also have the same content, just update the local files and push to remote
          #first list all the files that are stored and select one and update the notes
          #enter file name newfile
-         decrypt_localfiles "${notename}"
-         while read -r notename ; do
-            printf '%s\n' "${text}" | tee -a "${notename}" >/dev/null
-         done
          sleep 1
          ;;
          3) read -rp "Retreive all the notes from the database " 
@@ -94,14 +103,21 @@ encrypt_localfiles (){
     #encrypt the file using age
     age -r "${recipient}" -o "${newfile}.age" "${newfile}"
 }
-privatekeyfilepath="/home/.config/age/"
 decrypt_localfiles (){
+    local privatekeyfile="${HOME}/.config/age/devlog-identity.txt"
     local filename=$1  #notename
+    local encryptedfile="${BACKUP_DIR}/${notename}.txt.age"
+    local plaintextfile="${BACKUP_DIR}/${notename}.txt"
     #add the decryption logic for decrypting the files
+    if [[ -f "${encryptedfile}" ]]; then
+        printf 'Encrypted note not found: %s\n' "${encryptedfile}" >&2
+    fi
     age --decrypt \
-    --identity "${privatekeyfilepath}/${filename}.txt" \
-    --output "${BACKUP_DIR}/restored-note.txt" \
-    "${BACKUP_DIR}/${newfile}.txt.age"
+    --identity "${privatekeyfile}" \
+    --output "${plaintextfile}" \
+    "${encryptedfile}"
+    #now give access to the plain text file via vim editor
+    "${EDITOR:-vim}" "${plaintextfile}"
 }
 
 main (){
