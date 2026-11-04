@@ -109,6 +109,13 @@ Handle_notes (){
          ;;
          3) read -rp "Retreive all the notes from the database " 
          #working on it...
+         #list all the files from the backupdir
+         if [[ -d "${BACKUP_DIR}" ]]; then
+            ls -al "${BACKUP_DIR}"/*.txt.age >/dev/null/ | awk -F '/' '{print $NF}' | sed 's/\.txt\.age$//'
+            else
+             echo "Directory doesnot exist"
+         fi
+         sleep 1
         esac
   done
 }
