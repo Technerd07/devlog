@@ -2,11 +2,11 @@
 #set -euo pipefail
 
 # Database connection variables with defaults
-DB_HOST="${DB_HOST:-localhost}"
-DB_PORT="${DB_PORT:-5432}"
-DB_NAME="${DB_NAME:-devlog}"
-DB_USER="${DB_USER:-postgres}"
-DATA_DIR="${STORAGE_PATH:-/data/attachments}"
+#DB_HOST="${DB_HOST:-localhost}"
+#DB_PORT="${DB_PORT:-5432}"
+#DB_NAME="${DB_NAME:-devlog}"
+#DB_USER="${DB_USER:-postgres}"
+#DATA_DIR="${STORAGE_PATH:-/data/attachments}"
 BACKUP_DIR="/home/backupdir"
 BACKEND_URL="${BACKEND_URL:-http://localhost:9090}"
 #we will not be installing utilities on this cuz docker image build has all dependancies installed
