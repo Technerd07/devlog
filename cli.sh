@@ -8,7 +8,7 @@ DB_NAME="${DB_NAME:-devlog}"
 DB_USER="${DB_USER:-postgres}"
 DATA_DIR="${STORAGE_PATH:-/data/attachments}"
 BACKUP_DIR="/home/backupdir"
-newfile="${BACKUP_DIR}/${name}.txt"
+BACKEND_URL="${BACKEND_URL:-http://localhost:9090}"
 #we will not be installing utilities on this cuz docker image build has all dependancies installed
 
 func_ui (){
@@ -44,14 +44,14 @@ Handle_notes (){
           if [[ -n "${newnote}" ]] && [[ -n "${name}" ]]; then
              #changed the architecture to have client and server side 
              #client will be using curl for sending requests over backend to psql server
-             BACKEND_URL="${BACKEND_URL:-http://localhost:9090}"
              echo "Sending Note To Server Daemon....."
              response="$(curl -s -X POST "${BACKEND_URL}" \
                 -d "title=$name&content=$newnote")"
              echo "Server Response: ${response}"
              #now create a file and encrypt it
+             newfile="${BACKUP_DIR}/${name}.txt"
              printf '%s\n' "${newnote}" > "${newfile}"
-             encrypt_localfiles
+             encrypt_localfiles "${newfile}"
             else 
                 echo "new note cant' be empty!"
             fi
@@ -70,35 +70,13 @@ Handle_notes (){
                 if [ ! -f "${agefile}.txt.age" ]; then
                     echo "File doesnot exist on the path "
                   else
-                    #1 first using the notename retreive the noteid from the database
-                    note_id=$(PGPASSWORD="$DB_PASSWORD" psql \
-                     -h "$DB_HOST" -p "$DB_PORT" \
-                     -U "$DB_USER" -d "$DB_NAME" \
-                     -t -A \
-                     -v title_val="${notename}" \
-                     -c "SELECT id FROM notes WHERE title = :'title_val' LIMIT 1;")
-                     #next store the note id 
-                     note_id=$(echo "${note_id}" | xargs)
-                     #check wether the note is present on that particular noteid on the database
-                     if [[ -z "${note_id}" ]]; then
-                        echo "Error: no matching note found in the databae for title: '${notename}'. "
-                        else
-                        echo "Found Note ID: ${note_id} . Opening for edit...."
-                        sleep 1
-                        decryptedfile=$(decrypt_localfiles "${agefile}" || return 1)
-                       "${EDITOR:-vim}" "${decryptedfile}" || return 1
-                        #push-db-logic here...
-                    # Read the updated content from the decrypted text file and escape single quotes
-                 updated_content=$(cat "${BACKUP_DIR}/${notename}.txt")
-                 updated_content="${updated_content//\'/\'\'}"
-                 
-                 # Push the update to PostgreSQL using the note_id
-                 PGPASSWORD="$DB_PASSWORD" psql \
-                     -v ON_ERROR_STOP=1 \
-                     -h "$DB_HOST" -p "$DB_PORT" \
-                     -U "$DB_USER" -d "$DB_NAME" \
-                     -c "UPDATE notes SET content = '${updated_content}' WHERE id = ${note_id};"
-                     fi
+                    decryptedfile=$(decrypt_localfiles "${agefile}" || true)
+                    "${EDITOR:-vim}" "${decryptedfile}" || return 1
+                    #re-encrypt after editing files
+                    encrypt_localfiles "${BACKUP_DIR}"/"${notename}.txt"
+                    echo "Local: ${notename} re-encrypted successfully"
+                    #now call the server side work
+                    #TODO: 
                   fi
                 else 
                 echo "Note name cant be null, Please enter Note Name correctly"
@@ -126,6 +104,7 @@ Handle_notes (){
 encrypt_localfiles (){ 
     #Usng age cmdline utility file encryption
     #first generate a private key to a file
+    local targetfile="$1"
     local privatekeyfile="${HOME}/.config/age/devlog-identity.txt"
     local recipient
 
@@ -139,18 +118,17 @@ encrypt_localfiles (){
     #store the encryption public key into the variable and use that to encrypt the file
     recipient="$(age-keygen -y -i "$privatekeyfile")"
 
-    if [[ ! -f "${newfile}" ]]; then
+    if [[ ! -f "${targetfile}" ]]; then
         printf 'Backup file not found : %s\n' "${newfile}"
         return 1
     fi
     #encrypt the file using age
-    age -r "${recipient}" -o "${newfile}.age" "${newfile}"
+    age -r "${recipient}" -o "${targetfile}.age" "${targetfile}"
     echo "Ecrypting Notes Completed Successfully"
 }
 decrypt_localfiles (){
     local privatekeyfile="${HOME}/.config/age/devlog-identity.txt"
-    local filename=$1  #notename
-    local encryptedfile="${BACKUP_DIR}/${notename}.txt.age"
+    local encryptedfile=$1  #notename
     local plaintextfile="${BACKUP_DIR}/${notename}.txt"
     #add the decryption logic for decrypting the files
     if [[ -f "${encryptedfile}" ]]; then
