@@ -1,15 +1,17 @@
 #!/bin/bash
 set -x
-set -euo pipefail
+SERVER_PORT=9090
+DB_NAME="${DB_NAME:-devlog}"
+DB_USER="${DB_USER:-postgres}"
+#case 1
+capture_content (){
 
-if [[ $EUID -ne 0 ]]; then
-    echo "Running as root!";
-    exec "$0" "$@"
-fi
-#first check socat is installed in the system and install it
-
-
+}
+listen (){
+    echo "Listening on $SERVER_PORT (Press crtl+c to stop the server)"
+   socat -v TCP-LISTEN:"${SERVER_PORT}",reuseaddr,fork SYSTEM:"echo -e 'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello from server :)'"
+}
 main (){
-
+    listen
 }
 main "$@"
