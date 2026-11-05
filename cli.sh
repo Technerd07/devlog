@@ -52,8 +52,10 @@ Handle_notes (){
              newfile="${BACKUP_DIR}/${name}.txt"
              printf '%s\n' "${newnote}" > "${newfile}"
              encrypt_localfiles "${newfile}"
+             return 0
             else 
                 echo "new note cant' be empty!"
+                return 1
             fi
          sleep 1
          ;; 
