@@ -162,8 +162,3 @@ decrypt_localfiles (){
     --output "${plaintextfile}" \
     "${encryptedfile}"
 }
-
-main (){
-    Handle_notes
-}
-main "$@"
