@@ -42,18 +42,16 @@ Handle_notes (){
           read -rp "Enter the Name Of the Note: " name
           read -rp "Enter a New Note: " newnote
           if [[ -n "${newnote}" ]] && [[ -n "${name}" ]]; then
-          # Escape single quotes for safety
-          safe_name="${name//\'/\'\'}"
-          safe_note="${newnote//\'/\'\'}"
-
-         # Insert both title and content into PostgreSQL
-         PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
-         -c "INSERT INTO notes (title, content) VALUES ('$safe_name', '$safe_note');"
-              # Local file creation
-              newfile="${BACKUP_DIR}/${name}.txt"
-              printf '%s\n' "${newnote}" > "${newfile}"
-              #first push the complete note data and then encrypt the local file
-              encrypt_localfiles
+             #changed the architecture to have client and server side 
+             #client will be using curl for sending requests over backend to psql server
+             BACKEND_URL="${BACKEND_URL:-http://localhost:9090}"
+             echo "Sending Note To Server Daemon....."
+             response="$(curl -s -X POST "${BACKEND_URL}" \
+                -d "title=$name&content=$newnote")"
+             echo "Server Response: ${response}"
+             #now create a file and encrypt it
+             printf '%s\n' "${newnote}" > "${newfile}"
+             encrypt_localfiles
             else 
                 echo "new note cant' be empty!"
             fi
@@ -147,6 +145,7 @@ encrypt_localfiles (){
     fi
     #encrypt the file using age
     age -r "${recipient}" -o "${newfile}.age" "${newfile}"
+    echo "Ecrypting Notes Completed Successfully"
 }
 decrypt_localfiles (){
     local privatekeyfile="${HOME}/.config/age/devlog-identity.txt"
