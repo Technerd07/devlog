@@ -77,7 +77,12 @@ capture_content (){
 }
 
 export -f capture_content push_to_psql
-
+:<<'comment'
+    case 2: updating the notes over local and remote 
+    on the remote:
+        first fetch the file id to the client and then after updating,
+        delete the remote file and then push the file to the db accordingly
+comment
 listen (){
     echo "Listening on $SERVER_PORT (Press crtl+c to stop the server)"
    socat -v TCP-LISTEN:"${SERVER_PORT}",reuseaddr,fork SYSTEM:"bash -c capture_content"

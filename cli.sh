@@ -79,6 +79,7 @@ Handle_notes (){
                     echo "Local: ${notename} re-encrypted successfully"
                     #now call the server side work
                     #TODO: 
+                    #Idea of scheduling the work to update after some time... maybe
                   fi
                 else 
                 echo "Note name cant be null, Please enter Note Name correctly"
