@@ -134,15 +134,18 @@ encrypt_localfiles (){
 decrypt_localfiles (){
     local privatekeyfile="${HOME}/.config/age/devlog-identity.txt"
     local encryptedfile=$1  #notename
-    local plaintextfile="${BACKUP_DIR}/${notename}.txt"
+    local plaintextfile="${encryptedfile}.txt"
     #add the decryption logic for decrypting the files
-    if [[ -f "${encryptedfile}" ]]; then
+    if [[ -f "${encryptedfile}.txt.age" ]]; then
         printf 'Encrypted note not found: %s\n' "${encryptedfile}" >&2
+        return 1
     fi
     age --decrypt \
     --identity "${privatekeyfile}" \
     --output "${plaintextfile}" \
-    "${encryptedfile}"
+    "${encryptedfile}.txt.age"
+
+    echo "${plaintextfile}"
 }
 schedule_note_update (){
 
