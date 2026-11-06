@@ -25,6 +25,32 @@ These are the intended components, not implemented features yet. The first miles
 
 ## Development status
 
-**Current focus:** backend shell script.
+**Current focus:** shell-based client and backend, with initial container images.
 
-The repository is at the initial planning stage. No backend, container image, Kubernetes manifests, or deployment workflow has been added yet.
+The repository currently contains the Bash client and backend scripts and Dockerfiles for building separate client and backend images. Kubernetes manifests, database deployment configuration, and an automated deployment workflow are still planned.
+
+## Project directory structure
+
+```text
+devlog/
+├── README.md                         # Project overview, plans, and this directory guide
+├── main.sh                           # Client entry point; loads cli.sh and starts the menu
+├── cli.sh                            # Interactive notes client and local Age encryption helpers
+├── backend.sh                        # Bash HTTP listener and backend request/database logic
+└── containerfiles/
+    ├── README.md                     # Build, transfer, volume, and run instructions for containers
+    ├── client/
+    │   └── dockerfile                # Client image definition (Alpine, Bash, curl, Age)
+    └── backend/
+        └── dockerfile                # Backend image definition
+```
+
+### Main files and directories
+
+- **`main.sh`** starts the interactive client by sourcing `cli.sh` and calling its menu handler.
+- **`cli.sh`** provides the notes menu, local file handling, and Age encryption/decryption functions. It sends HTTP requests to the backend using `BACKEND_URL` and stores local note files under `/mnt/backupdir`.
+- **`backend.sh`** contains the `socat` TCP listener and request parsing/database integration logic. The backend image and runtime configuration are still being developed.
+- **`containerfiles/client/dockerfile`** builds the interactive client image. It uses `sleep infinity` as the container command so a user can enter the container and start `main.sh` manually.
+- **`containerfiles/backend/dockerfile`** is the starting point for building the backend image.
+- **`containerfiles/README.md`** documents building the client image with Podman, transferring it to Docker, and creating/mounting the client volume. Podman and Docker have separate image and volume stores.
+The tree above reflects the files currently in the repository. Kubernetes manifests and database deployment files will be added as those parts are implemented.

@@ -1,32 +1,78 @@
-# Devlog Client Container
+# Devlog Containers
 
-Devlog is a small command-line notes project. The client presents a menu for creating, updating, and listing notes. It sends requests to the backend and stores an encrypted local copy using Age.
+## Use the client image with Podman or Docker
 
-## Build the image
+The client image can be built and run with either Podman or Docker. This workflow builds the image with Podman, saves it as an archive, then loads that same image into Docker.
 
-Run these commands from the repository root:
+### 1. Build with Podman
+
+Run from the repository root:
 
 ```sh
-podman build -f containerfiles/client/dockerfile -t devlog-client .
+podman build -f containerfiles/client/dockerfile -t devlog-client-podman .
 ```
 
-## Start the container
+### 2. Create the client volume in Podman
 
-The image stays running with `sleep infinity` so you can enter it and run the client interactively. Mount a named volume at `/home/backupdir` to retain local note files:
+Create one named volume for the client's local note files:
 
 ```sh
-podman volume create devlog-data
+podman volume create devlog-client-vol
+```
+
+Podman and Docker keep separate volume stores. Create a volume with the same name in Docker too; the name is the same, but the volume data is not shared automatically between engines.
+
+### 3. Save the image and load it into Docker
+
+Save the Podman image to a tar archive:
+
+```sh
+podman save -o devlog-client.tar devlog-client-podman
+```
+
+Load that archive into Docker:
+
+```sh
+docker load -i ./devlog-client.tar
+```
+
+Docker will list the loaded image under the `devlog-client-podman` tag. Check with:
+
+```sh
+docker images devlog-client-podman
+```
+
+### 4. Create the Docker volume
+
+```sh
+docker volume create devlog-client-vol
+```
+
+### 5. Start the client
+
+The image runs `sleep infinity` so you can enter the container and launch the interactive menu manually. The volume is mounted at `/mnt/backupdir`:
+
+```sh
 podman run -d --name devlog-client \
-  -v devlog-data:/home/backupdir \
+  -v devlog-client-vol:/mnt/backupdir \
   -e BACKEND_URL=http://backend:9090 \
-  devlog-client
+  devlog-client-podman
 ```
 
-Use the backend service's reachable hostname in `BACKEND_URL`. For containers in the same Podman pod, `localhost` can work when the backend listens on port 9090; on a shared network, use its container or service name.
+For Docker, use the same volume mount and image tag:
 
-## Run the menu
+```sh
+docker run -d --name devlog-client \
+  -v devlog-client-vol:/mnt/backupdir \
+  -e BACKEND_URL=http://backend:9090 \
+  devlog-client-podman
+```
 
-Open an interactive shell in the running container, then start `main.sh`:
+Set `BACKEND_URL` to a hostname and port the client container can reach. For example, `backend` works when the backend container is reachable by that name on a shared container network. `localhost` refers to the client container itself, not another container.
+
+### 6. Open a shell and run the menu
+
+With Podman:
 
 ```sh
 podman exec -it devlog-client bash
@@ -34,23 +80,22 @@ cd /client-app
 bash ./main.sh
 ```
 
-`main.sh` sources `cli.sh` and calls its menu handler. `cli.sh` alone defines functions and does not start the menu.
-
-Choose an option from the menu. Creating and editing notes uses the configured editor (defaults to `vim`); install or provide an editor if needed. The client container currently installs `curl`, `age`, and `bash`.
-
-## Age identity
-
-Age creates an identity at `~/.config/age/devlog-identity.txt` on first encryption. In the container, this is typically `/root/.config/age/devlog-identity.txt`. Keep this file private and persist it if you need to decrypt notes after recreating the container. For example, mount a protected host directory at `/root/.config/age`:
+With Docker:
 
 ```sh
--v "$HOME/.config/age:/root/.config/age"
+docker exec -it devlog-client bash
+cd /client-app
+bash ./main.sh
 ```
 
-The note volume and identity are separate: the encrypted files are not decryptable without the matching identity.
+`main.sh` sources `cli.sh` and starts the menu. `cli.sh` only defines the functions. The client uses `curl`, `age`, and `bash`; note editing also requires an editor such as `vim` to be installed or configured.
 
-## Current development notes
+## Devlog introduction
 
-- The local note directory is `/home/backupdir`.
-- The default backend URL is `http://localhost:9090`; set `BACKEND_URL` when starting the container to match your Podman network.
-- The backend must be running and reachable for requests to succeed.
-- This image is configured for interactive development, not as a long-running production client service.
+Devlog is a command-line notes project. The client provides menu options to create, update, and list notes. It sends requests to the backend and keeps an encrypted local copy of notes using Age. The backend must be running and reachable for server requests to work.
+
+Age creates an identity at `~/.config/age/devlog-identity.txt` on first encryption (typically `/root/.config/age/devlog-identity.txt` in the container). Preserve the matching identity securely if you need to decrypt existing notes. The client volume stores the encrypted note files; it does not automatically preserve the Age identity.
+
+## Notes about volumes
+
+The `devlog-client-vol` volume persists files when the client container is removed and recreated within the same engine. Podman and Docker have separate volume stores, so a same-named volume in each engine starts with separate data. To move note data between engines, back up and restore the volume contents separately.
