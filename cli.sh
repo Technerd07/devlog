@@ -80,6 +80,8 @@ Handle_notes (){
                     #now call the server side work
                     #TODO: 
                     #Idea of scheduling the work to update after some time... maybe
+                    #schedule the note update as a background job using & symbol
+                    schedule_note_update "${decryptedfile}" &
                   fi
                 else 
                 echo "Note name cant be null, Please enter Note Name correctly"
@@ -141,4 +143,15 @@ decrypt_localfiles (){
     --identity "${privatekeyfile}" \
     --output "${plaintextfile}" \
     "${encryptedfile}"
+}
+schedule_note_update (){
+
+    local target_decrypted_file="$1"
+    sleep 120
+    local content
+    content="$(cat "${target_decrypted_file}")"
+
+    curl -sS -X POST "${BACKEND_URL}" \
+        --data-urlencode "action=update" \
+        --data-urlencode "content=${content}"
 }
