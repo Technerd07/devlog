@@ -1,0 +1,11 @@
+#we must run this script with tty on cuz we need to have client script on to interact with the server
+FROM alpine:latest
+RUN apk update && apk add curl \
+    age \
+    bash 
+WORKDIR /client-app
+COPY cli.sh /client-app/cli.sh
+COPY main.sh /client-app/main.sh
+RUN chmod +x /client-app/cli.sh
+CMD ["sleep", "infinity"]
+
