@@ -8,6 +8,7 @@
 #DB_USER="${DB_USER:-postgres}"
 #DATA_DIR="${STORAGE_PATH:-/data/attachments}"
 BACKUP_DIR="/mnt/backupdir"
+#backup directory name must match the volume mount unless it wont work 
 BACKEND_URL="${BACKEND_URL:-http://localhost:9090}"
 #we will not be installing utilities on this cuz docker image build has all dependancies installed
 
@@ -29,7 +30,7 @@ Handle_notes (){
         echo "Error dir does not exist"
         else
             mkdir -vp "${BACKUP_DIR}"
-            return 0
+            return 1
     fi
 
     while true; do
@@ -73,7 +74,8 @@ Handle_notes (){
                     echo "File doesnot exist on the path "
                   else
                     decryptedfile=$(decrypt_localfiles "${agefile}" || true)
-                    "${EDITOR:-vim}" "${decryptedfile}" || return 1
+                    #Using 'vi' instead of 'vim' in the alpine container builds work 
+                    "${EDITOR:-vi}" "${decryptedfile}" || return 1
                     #re-encrypt after editing files
                     encrypt_localfiles "${BACKUP_DIR}"/"${notename}.txt"
                     echo "Local: ${notename} re-encrypted successfully"

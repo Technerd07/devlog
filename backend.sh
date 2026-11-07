@@ -87,7 +87,10 @@ listen (){
     echo "Listening on $SERVER_PORT (Press crtl+c to stop the server)"
    socat -v TCP-LISTEN:"${SERVER_PORT}",reuseaddr,fork SYSTEM:"bash -c capture_content"
 }
-
+append_logs (){
+    echo "append logs to /var/log/devlog.log" file created 
+    #TODO:
+}
 main (){
     listen
 }

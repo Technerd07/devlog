@@ -15,4 +15,4 @@ RUN apk update && apk add curl age bash socat
 WORKDIR /client-app/
 COPY main.sh cli.sh backend.sh entrypoint.sh /client-app/
 RUN chmod +x *.sh
-ENTRYPOINT ["/client-app/entrypoint.sh"]
+CMD ["sleep","infinity"]

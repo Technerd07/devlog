@@ -8,4 +8,4 @@ BACKEND_PID=$!
 
 echo "Starting client [*]....."
 sleep 2
-exec /client-app/cli.sh
+/client-app/cli.sh
