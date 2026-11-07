@@ -3,7 +3,8 @@ ENV  POSTGRES_USER="devlog" \
      POSTGRES_DB="devlog" \
      POSTGRES_PASSWORD="*123#" \
      POSTGRES_PORT=5432 
-#baking pass inside the dockerfile to make executions error free (testing)
+#baking pass inside the dockerfile to make executions error free (testing).The password must also be passed durning the container creation time to avoid internal failing test cases
+#(use podman run -dit --name <container name> ...... psql -U devlog -e PGPASSWORD="<your-database-password>" to run the container correctly)
 #volumes use the previously created persistent volume
 #using schema.sql as the context during build time for a image to make psql use this file to create table.
 COPY ./schema.sql /docker-entrypoint-initdb.d/001-schema.sql

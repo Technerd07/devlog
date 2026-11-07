@@ -1,8 +1,10 @@
 #!/bin/bash
+source "$(dirname "${BASH_SOURCE[0]}")/logs.sh"
 set -x
 SERVER_PORT=9090
 DB_NAME="${DB_NAME:-devlog}"
 DB_USER="${DB_USER:-devlog}"
+DB_HOST="${DB_HOST:-devlog-db}"
 #case 1
 push_to_psql (){
     echo "TODO:"
@@ -24,7 +26,7 @@ capture_content (){
     #first read the input received from curl
     read -r input_line || true
     #parse the input text to cut title and content received
-    local content_len=0
+    local content_length=0
    while read -r header; do
         [[ "$header" == $'\r' || -z "$header" ]] && break
         if [[ "$header" =~ ^Content-Length:\ ([0-9]+) ]]; then
@@ -65,18 +67,30 @@ capture_content (){
     fi
 
     # 6. Send HTTP/1.1 response back to cli.sh through the socket stream
-    echo -e "HTTP/1.1 200 OK\r"
-    echo -e "Content-Type: text/plain\r"
-    echo -e "Connection: close\r"
-    echo -e "\r"
-    #echo "Title of the Note: $safe_title"  >&2
+        #echo "Title of the Note: $safe_title"  >&2
     #echo -e "Content: $safe_content " >&2
     #call the psql db pushing function here 
     #TODO:
-    push_to_psql "${safe_title}" "${safe_content}"
+    if push_to_psql "${safe_title}" "${safe_content}";then
+        printf  "HTTP/1.1 200 OK\r"
+        printf "Content-Type: text/plain\r"
+        printf "Connection: close\r\n"
+        printf "\r\n"
+        printf "note created successfully \n"
+        append_logs "SUCCESS" "Note created successfully" "Pushed Data to psql-server successfully"
+
+        else 
+            printf 'HTTP/1.1 500 Internal Server Error\r\n'
+            printf 'Content-Type: text/plain\r\n'
+            printf 'Connection: close\r\n'
+            printf '\r\n'
+            printf 'Failed to save note\n'
+            append_logs "ERROR" "Failed to save note" "500 Internal server error! connection closed!"
+    fi
 }
 
-export -f capture_content push_to_psql
+#Export the functions to make them available for child process
+export -f capture_content push_to_psql append_logs
 :<<'comment'
     case 2: updating the notes over local and remote 
     on the remote:
@@ -87,10 +101,7 @@ listen (){
     echo "Listening on $SERVER_PORT (Press crtl+c to stop the server)"
    socat -v TCP-LISTEN:"${SERVER_PORT}",reuseaddr,fork SYSTEM:"bash -c capture_content"
 }
-append_logs (){
-    echo "append logs to /var/log/devlog.log" file created 
-    #TODO:
-}
+
 main (){
     listen
 }

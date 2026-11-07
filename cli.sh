@@ -44,8 +44,10 @@ Handle_notes (){
              #changed the architecture to have client and server side 
              #client will be using curl for sending requests over backend to psql server
              echo "Sending Note To Server Daemon....."
-             response="$(curl -s -X POST "${BACKEND_URL}" \
-                -d "title=$name&content=$newnote")"
+             response="$(curl -sS -X POST "${BACKEND_URL}" \
+                --data-urlencode "title=${name}" \
+                --data-urlencode "content=${newnote}")"
+
              echo "Server Response: ${response}"
              #now create a file and encrypt it
              newfile="${BACKUP_DIR}/${name}.txt"
