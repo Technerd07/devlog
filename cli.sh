@@ -26,12 +26,10 @@ Handle_notes (){
     #when pushing delete all files and save them to the db
     #first create a backupdir
     
-    if [ ! -d "${BACKUP_DIR}" ]; then
-        echo "Error dir does not exist"
-        else
-            mkdir -vp "${BACKUP_DIR}"
-            return 1
-    fi
+    mkdir -p "${BACKUP_DIR}" || {
+        echo "Unable to create backup directory: ${BACKUP_DIR}" >&2
+        return 1
+    }
 
     while true; do
      func_ui

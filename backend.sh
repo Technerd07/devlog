@@ -2,7 +2,7 @@
 set -x
 SERVER_PORT=9090
 DB_NAME="${DB_NAME:-devlog}"
-DB_USER="${DB_USER:-postgres}"
+DB_USER="${DB_USER:-devlog}"
 #case 1
 push_to_psql (){
     echo "TODO:"
