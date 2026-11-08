@@ -77,10 +77,16 @@ Handle_notes (){
                     continue;
                 fi
                     decryptedfile=$(decrypt_localfiles "${agefile}") || continue;
+                    original_content=$(cat "${decryptedfile}")
                     #Using 'vi' instead of 'vim' in the alpine container builds work 
                     "${EDITOR:-vi}" "${decryptedfile}" ||  { rm -f "${decryptedfile}" ; contunue ;} 
                     #re-encrypt after editing files
                     content="$(cat "${decryptedfile}")"
+                    if [[ "${content}" -eq "${original_content}" ]]; then
+                        rm -f "${decryptedfile}"
+                        echo "No changes have been applied to file"
+                        continue;
+                    fi
                     encrypt_local_fiiles "${decryptedfile}"
                     echo "Local: ${notename} re-encrypted successfully"
                     #scheduled note push to server using background jobs
