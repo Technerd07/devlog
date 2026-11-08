@@ -1,101 +1,87 @@
-# Devlog Containers
+# DevLog container setup
 
-## Use the client image with Podman or Docker
+This guide describes the current Podman development setup. The running client container is named `linux-sandbox`, the PostgreSQL container is named `devlog-db`, and both use the `devlog-network` network. The client container also has the PostgreSQL command-line client (`psql`) installed so the backend script can connect to the database.
 
-The client image can be built and run with either Podman or Docker. This workflow builds the image with Podman, saves it as an archive, then loads that same image into Docker.
+## Current verified setup
 
-### 1. Build with Podman
-
-Run from the repository root:
+The containers were connected to the same Podman network, and connectivity was checked from `linux-sandbox`:
 
 ```sh
-podman build -f containerfiles/client/dockerfile -t devlog-client-podman .
+podman network inspect devlog-network
+podman exec linux-sandbox getent hosts devlog-db
 ```
 
-### 2. Create the client volume in Podman
+The hostname lookup returned an address for `devlog-db`. A direct `psql` connection from the client container also succeeded and listed the database tables. This verifies container DNS and PostgreSQL access from `linux-sandbox` to `devlog-db`.
 
-Create one named volume for the client's local note files:
+## Attach existing containers to the network
+
+The network and containers already exist, so connect them rather than creating duplicate containers:
 
 ```sh
-podman volume create devlog-client-vol
+podman network connect devlog-network linux-sandbox
+podman network connect devlog-network devlog-db
 ```
 
-Podman and Docker keep separate volume stores. Create a volume with the same name in Docker too; the name is the same, but the volume data is not shared automatically between engines.
-
-### 3. Save the image and load it into Docker
-
-Save the Podman image to a tar archive:
+If a container is already attached, Podman may report that it is connected; inspect the network to confirm both names are listed:
 
 ```sh
-podman save -o devlog-client.tar devlog-client-podman
+podman network inspect devlog-network
 ```
 
-Load that archive into Docker:
+The backend uses `DB_HOST=devlog-db`, `DB_NAME=devlog`, and `DB_USER=devlog` by default. The PostgreSQL container must have been initialized with matching database/user settings and a password known to the backend. PostgreSQL's data directory is persisted in the database volume.
+
+## Check PostgreSQL from the client container
+
+Confirm name resolution:
 
 ```sh
-docker load -i ./devlog-client.tar
+podman exec linux-sandbox getent hosts devlog-db
 ```
 
-Docker will list the loaded image under the `devlog-client-podman` tag. Check with:
+Connect with `psql` and list tables. It will prompt for the database password:
 
 ```sh
-docker images devlog-client-podman
+podman exec -it linux-sandbox psql \
+  -h devlog-db -p 5432 -U devlog -d devlog \
+  -c '\dt'
 ```
 
-### 4. Create the Docker volume
+The backend also needs `psql` installed in the container where `backend.sh` runs. A successful manual `psql` command confirms the client is present and can reach PostgreSQL; if the backend still fails, inspect its runtime `DB_HOST`, `DB_NAME`, `DB_USER`, and password settings and read the `psql` error output.
+
+## Run the application scripts
+
+Run the backend and client from the directory containing their scripts and `logs.sh`, because the scripts source sibling files using relative paths. Start the backend in one terminal:
 
 ```sh
-docker volume create devlog-client-vol
+podman exec -it linux-sandbox sh
+cd /work
+bash backend.sh
 ```
 
-### 5. Start the client
-
-The image runs `sleep infinity` so you can enter the container and launch the interactive menu manually. The volume is mounted at `/mnt/backupdir`:
+In another terminal, open the client container and start the interactive client:
 
 ```sh
-podman run -d --name devlog-client \
-  -v devlog-client-vol:/mnt/backupdir \
-  -e BACKEND_URL=http://backend:9090 \
-  devlog-client-podman
+podman exec -it linux-sandbox sh
+cd /work
+bash main.sh
 ```
 
-For Docker, use the same volume mount and image tag:
+If the scripts are located in another directory in the container, change to that directory instead. The client defaults to `BACKEND_URL=http://localhost:9090`, which works when the backend runs in the same container. If client and backend are split into separate containers, attach both to `devlog-network` and set `BACKEND_URL` to the backend container name and port, for example `http://backend:9090`.
+
+## Volumes and persistence
+
+The setup uses named Podman volumes so local encrypted notes and PostgreSQL data can persist when containers are recreated. Podman volume names are specific to the local Podman installation; list the actual names with:
 
 ```sh
-docker run -d --name devlog-client \
-  -v devlog-client-vol:/mnt/backupdir \
-  -e BACKEND_URL=http://backend:9090 \
-  devlog-client-podman
+podman volume ls
+podman inspect linux-sandbox
+podman inspect devlog-db
 ```
 
-Set `BACKEND_URL` to a hostname and port the client container can reach. For example, `backend` works when the backend container is reachable by that name on a shared container network. `localhost` refers to the client container itself, not another container.
+Keep the existing volume mounted to PostgreSQL's data directory (`/var/lib/postgresql/data`) when recreating `devlog-db`. Keep the client volume mounted at the path used for local notes (the script defaults to `/mnt/backupdir`). Do not remove these volumes when replacing containers if you need their data.
 
-### 6. Open a shell and run the menu
+Age stores its identity separately at `~/.config/age/devlog-identity.txt` (commonly under `/root` in a container). Preserve that identity too if you need to decrypt existing local notes; the notes volume alone may not contain it.
 
-With Podman:
+## Current image build status
 
-```sh
-podman exec -it devlog-client bash
-cd /client-app
-bash ./main.sh
-```
-
-With Docker:
-
-```sh
-docker exec -it devlog-client bash
-cd /client-app
-bash ./main.sh
-```
-
-`main.sh` sources `cli.sh` and starts the menu. `cli.sh` only defines the functions. The client uses `curl`, `age`, and `bash`; note editing also requires an editor such as `vim` to be installed or configured.
-
-## Devlog introduction
-
-Devlog is a command-line notes project. The client provides menu options to create, update, and list notes. It sends requests to the backend and keeps an encrypted local copy of notes using Age. The backend must be running and reachable for server requests to work.
-
-Age creates an identity at `~/.config/age/devlog-identity.txt` on first encryption (typically `/root/.config/age/devlog-identity.txt` in the container). Preserve the matching identity securely if you need to decrypt existing notes. The client volume stores the encrypted note files; it does not automatically preserve the Age identity.
-
-## Notes about volumes
-
-The `devlog-client-vol` volume persists files when the client container is removed and recreated within the same engine. Podman and Docker have separate volume stores, so a same-named volume in each engine starts with separate data. To move note data between engines, back up and restore the volume contents separately.
+The live containers have been configured and tested manually. The Dockerfiles still need to be aligned with the current repository layout under `shellscripts/`: the client Dockerfile references scripts at the repository root, and it does not currently install `postgresql-client`. Rebuildable image instructions will be added after those build contexts and runtime packages are corrected.
