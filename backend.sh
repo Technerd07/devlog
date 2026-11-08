@@ -1,5 +1,6 @@
 #!/bin/bash
-source "$(dirname "${BASH_SOURCE[0]}")/logs.sh"
+#source "$(dirname "${BASH_SOURCE[0]}")/logs.sh"
+source logs.sh
 set -x
 SERVER_PORT=9090
 DB_NAME="${DB_NAME:-devlog}"
@@ -7,7 +8,6 @@ DB_USER="${DB_USER:-devlog}"
 DB_HOST="${DB_HOST:-devlog-db}"
 #case 1
 push_to_psql (){
-    echo "TODO:"
     local title="$1"
     local content="$2"
     #take title and content fields from capture_content () and then format accordingly and push to db 
@@ -16,9 +16,10 @@ push_to_psql (){
         echo "Title and content are empty. Can't complete the push operation"  
         return 1
     fi
-    psql -U "$DB_USER" -d "$DB_NAME" -h "$DB_HOST" -c \
-        "INSERT INTO notes (title, content) VALUES ('$title', '$content');" &>/dev/null || {
-        echo "[DAEMON] ERROR: Failed to insert record into PostgreSQL." >&2
+    psql -X -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" -h "$DB_HOST" \
+        --set=note_title="$title" --set=note_content="$content" \
+        -c "INSERT INTO notes (title, content) VALUES (:'note_title', :'note_content');" &>/dev/null || {
+        append_logs "[DAEMON] ERROR: Failed to insert record into PostgreSQL." 
         return 1
     }
 }
@@ -59,14 +60,8 @@ capture_content (){
     local safe_content="${content//\'/\'\'}"
 
     echo "[DAEMON] Intercepted note creation -> Title: $safe_title" >&2
-
     # 5. Insert into PostgreSQL container
-    if [[ -n "$safe_title" ]] && [[ -n "$safe_content" ]]; then
-        #TODO:
-        echo "#psql function related stuff here"
-    fi
-
-    # 6. Send HTTP/1.1 response back to cli.sh through the socket stream
+       # 6. Send HTTP/1.1 response back to cli.sh through the socket stream
         #echo "Title of the Note: $safe_title"  >&2
     #echo -e "Content: $safe_content " >&2
     #call the psql db pushing function here 
