@@ -1,56 +1,73 @@
 # DevLog
 
-DevLog is a learning project for building a small notes service and deploying it on a local Kubernetes cluster. The work will happen in stages, starting with a shell script and adding the container and cluster infrastructure afterward.
+DevLog is a learning project for a small notes application built with Bash, PostgreSQL, and Age. The current prototype has an interactive shell client, a Bash HTTP backend, and a PostgreSQL schema. The next phase is to make the container setup reproducible and deploy it to Kubernetes.
 
-## Project plan
+## Demo
 
-1. **Build the backend script** — write a Bash script that listens for HTTP requests on a TCP socket, handles a small initial set of routes, and stores notes. This is the current stage.
-2. **Add persistence** — connect the service to PostgreSQL for notes and metadata, then add a separate volume for file attachments.
-3. **Containerize the service** — create a lean image with the required shell, networking, and database client tools.
-4. **Deploy to kind** — define Kubernetes configuration, storage, and services for the backend and database.
-5. **Add ingress and validate** — route local requests through an NGINX Ingress controller and exercise the endpoints with `curl`.
+![DevLog demo (1:35–2:16)](docs/demo.gif)
 
-## Planned architecture
+[Watch the full demo video](docs/demo.mov)
 
-The target setup separates the backend, database, attachment storage, and traffic routing into distinct Kubernetes resources:
-
-- A Bash backend uses `socat` to accept TCP connections and `psql` to access PostgreSQL.
-- A PostgreSQL StatefulSet stores structured data on a persistent volume.
-- A separate persistent volume holds uploaded attachments.
-- ConfigMaps and Secrets provide runtime configuration and credentials.
-- ClusterIP services connect the backend to PostgreSQL and expose the API inside the cluster.
-- An NGINX Ingress controller routes requests for `devlog.local`, including `/api` traffic, to the backend.
-
-These are the intended components, not implemented features yet. The first milestone is the standalone backend script; Kubernetes manifests and deployment steps will follow as the project develops.
-
-## Development status
-
-**Current focus:** shell-based client and backend, with initial container images.
-
-The repository currently contains the Bash client and backend scripts and Dockerfiles for building separate client and backend images. Kubernetes manifests, database deployment configuration, and an automated deployment workflow are still planned.
-
-## Project directory structure
+## Repository structure
 
 ```text
 devlog/
-├── README.md                         # Project overview, plans, and this directory guide
-├── main.sh                           # Client entry point; loads cli.sh and starts the menu
-├── cli.sh                            # Interactive notes client and local Age encryption helpers
-├── backend.sh                        # Bash HTTP listener and backend request/database logic
+├── README.md
+├── docs/
+│   |── demo.gif                    # Short animated preview
+├── shellscripts/
+│   ├── main.sh                     # Interactive client entry point
+│   ├── cli.sh                      # Menu, HTTP client, local Age encryption
+│   ├── backend.sh                  # HTTP listener and PostgreSQL writes
+│   └── logs.sh                     # Logging helper
 └── containerfiles/
-    ├── README.md                     # Build, transfer, volume, and run instructions for containers
+    ├── README.md                   # Container workflow notes
     ├── client/
-    │   └── dockerfile                # Client image definition (Alpine, Bash, curl, Age)
+    │   └── dockerfile              # Client image definition
     └── backend/
-        └── dockerfile                # Backend image definition
+        ├── dockerfile              # PostgreSQL image definition
+        ├── schema.sql              # Notes table schema
+        └── ref.txt                 # Backend container notes
 ```
 
-### Main files and directories
+The shell scripts source sibling files by relative path, so run them from `shellscripts/`. Kubernetes manifests and deployment automation do not exist in the repository yet.
 
-- **`main.sh`** starts the interactive client by sourcing `cli.sh` and calling its menu handler.
-- **`cli.sh`** provides the notes menu, local file handling, and Age encryption/decryption functions. It sends HTTP requests to the backend using `BACKEND_URL` and stores local note files under `/mnt/backupdir`.
-- **`backend.sh`** contains the `socat` TCP listener and request parsing/database integration logic. The backend image and runtime configuration are still being developed.
-- **`containerfiles/client/dockerfile`** builds the interactive client image. It uses `sleep infinity` as the container command so a user can enter the container and start `main.sh` manually.
-- **`containerfiles/backend/dockerfile`** is the starting point for building the backend image.
-- **`containerfiles/README.md`** documents building the client image with Podman, transferring it to Docker, and creating/mounting the client volume. Podman and Docker have separate image and volume stores.
-The tree above reflects the files currently in the repository. Kubernetes manifests and database deployment files will be added as those parts are implemented.
+## Current prototype
+
+- The client provides an interactive menu and stores local note files encrypted with Age.
+- The client sends note requests to the backend over HTTP.
+- The backend listens on port `9090` and uses `psql` to write notes to PostgreSQL.
+- `containerfiles/backend/schema.sql` defines the PostgreSQL notes table.
+
+The client retrieval and edit flows and the container packaging are still being developed. Review [containerfiles/README.md](containerfiles/README.md) and the Dockerfiles before building; the current paths and build instructions may need alignment with the `shellscripts/` layout.
+
+## Kubernetes roadmap
+
+### 1. Make container deployment reproducible
+
+Align image build contexts with the repository layout, install each service's runtime dependencies, externalize credentials, and document container networking and persistent volumes. Verify the client, backend, and database communicate through named services before moving to Kubernetes.
+
+### 2. Implement Kubernetes resources
+
+Add manifests for:
+
+- A backend Deployment and ClusterIP Service.
+- A PostgreSQL StatefulSet, Service, and PersistentVolumeClaim.
+- ConfigMaps for non-sensitive settings and Secrets for database credentials.
+- Optional ingress resources after the in-cluster service path is working.
+
+### 3. Deploy and validate on a manually managed cluster
+
+Document how to configure `kubectl` for a manually managed cluster, load or publish the required images, apply the manifests, and verify pod readiness, service discovery, database persistence, and note creation. Keep cluster-specific storage classes, image registries, and ingress settings configurable rather than assuming they match the local setup.
+
+### 4. Automate local-cluster testing
+
+Create a repeatable local workflow using kind as the initial target (with Minikube as an optional target). It should create or select the cluster, build and load images, apply the same Kubernetes manifests, wait for readiness, run smoke tests, and clean up test resources. This provides a quick regression check without replacing validation on the manually managed cluster.
+
+### 5. Add ingress and end-to-end checks
+
+Install or document an ingress controller for the chosen cluster, route a local hostname to the backend, and test the user-facing request path with `curl` and the CLI.
+
+## Requirements
+
+For shell and container development, use Bash, Age, `curl`, `socat`, the PostgreSQL client (`psql`), and Podman or Docker. Kubernetes work will additionally use `kubectl` and access to either a manually managed Kubernetes cluster or a local kind cluster; Minikube may be used as an alternative local cluster. Cluster creation, image loading, storage, and ingress steps differ by target and will be documented as the deployment workflow is implemented.
