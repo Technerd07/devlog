@@ -1,0 +1,9 @@
+\du          -- list database roles/users
+\l           -- list databases
+\dt          -- list tables in the current database
+\d notes     -- show the notes table schema
+
+
+
+#to get information about specific notes from db
+SELECT title, content, created_at FROM notes WHERE title = 'first_note';
