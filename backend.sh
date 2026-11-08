@@ -1,11 +1,16 @@
 #!/bin/bash
 #source "$(dirname "${BASH_SOURCE[0]}")/logs.sh"
 source logs.sh
-set -x
+#set -x
 SERVER_PORT=9090
 DB_NAME="${DB_NAME:-devlog}"
 DB_USER="${DB_USER:-devlog}"
 DB_HOST="${DB_HOST:-devlog-db}"
+PG_PASSWORD="${PG_PASSWORD:-*123#}"
+export PG_PASSWORD="${PG_PASSWORD}"
+export DB_HOST DB_USER DB_NAME PG_PASSWORD
+
+urldecode() { local s="${1//+/ }"; printf '%b' "${s//%/\\x}"; }
 #case 1
 push_to_psql (){
     local title="$1"
@@ -16,21 +21,22 @@ push_to_psql (){
         echo "Title and content are empty. Can't complete the push operation"  
         return 1
     fi
-    psql -X -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" -h "$DB_HOST" \
-        --set=note_title="$title" --set=note_content="$content" \
-        -c "INSERT INTO notes (title, content) VALUES (:'note_title', :'note_content');" &>/dev/null || {
+    psql -X -q -v ON_ERROR_STOP=1 -w -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
+     --set=note_title="$title" --set=note_content="$content" \
+     >/dev/null <<< "INSERT INTO notes (title, content) VALUES (:'note_title', :'note_content');" || {
         append_logs "[DAEMON] ERROR: Failed to insert record into PostgreSQL." 
         return 1
     }
 }
 capture_content (){
+    LC_ALL=C
     #first read the input received from curl
     read -r input_line || true
     #parse the input text to cut title and content received
     local content_length=0
    while read -r header; do
         [[ "$header" == $'\r' || -z "$header" ]] && break
-        if [[ "$header" =~ ^Content-Length:\ ([0-9]+) ]]; then
+        if [[ "{$header,,}" =~ ^Content-Length:\ ([0-9]+) ]]; then
             content_length="${BASH_REMATCH[1]}"
         fi
     done 
@@ -47,28 +53,22 @@ capture_content (){
     local content=""
     
     if [[ "$body" =~ title=([^&]*)(&|$) ]]; then
-        title="${BASH_REMATCH[1]}"
-        title="${title//+/ }" # Basic space decode
+        title="$(urldecode "${BASH_REMATCH[2]}")"
     fi
     if [[ "$body" =~ content=([^&]*)(&|$) ]]; then
-        content="${BASH_REMATCH[1]}"
-        content="${content//+/ }"
+        content="$(urldecode "${BASH_REMATCH[2]}")"
     fi
 
-    # Escape single quotes for SQL safety
-    local safe_title="${title//\'/\'\'}"
-    local safe_content="${content//\'/\'\'}"
-
-    echo "[DAEMON] Intercepted note creation -> Title: $safe_title" >&2
+    echo "[DAEMON] Intercepted note creation -> Title: $title" >&2
     # 5. Insert into PostgreSQL container
        # 6. Send HTTP/1.1 response back to cli.sh through the socket stream
         #echo "Title of the Note: $safe_title"  >&2
     #echo -e "Content: $safe_content " >&2
     #call the psql db pushing function here 
     #TODO:
-    if push_to_psql "${safe_title}" "${safe_content}";then
-        printf  "HTTP/1.1 200 OK\r"
-        printf "Content-Type: text/plain\r"
+    if push_to_psql "$title" "$content";then
+        printf 'HTTP/1.1 200 OK\r\n'
+        printf 'Content-Type: text/plain\r\n'
         printf "Connection: close\r\n"
         printf "\r\n"
         printf "note created successfully \n"
@@ -85,7 +85,7 @@ capture_content (){
 }
 
 #Export the functions to make them available for child process
-export -f capture_content push_to_psql append_logs
+export -f capture_content push_to_psql append_logs url_decode
 :<<'comment'
     case 2: updating the notes over local and remote 
     on the remote:
@@ -93,7 +93,7 @@ export -f capture_content push_to_psql append_logs
         delete the remote file and then push the file to the db accordingly
 comment
 listen (){
-    echo "Listening on $SERVER_PORT (Press crtl+c to stop the server)"
+    echo "Listening on ${SERVER_PORT} (Press crtl+c to stop the server)"
    socat -v TCP-LISTEN:"${SERVER_PORT}",reuseaddr,fork SYSTEM:"bash -c capture_content"
 }
 

@@ -20,15 +20,23 @@ echo "2: update the note selected"
 echo "3: Retrevie all the notes selected"
 echo "4: EXIT"
 }
-
+send_note (){
+    local title="$1";
+    local content="$2" code ;
+    code="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${BACKEND_URL}" \
+            --data-urlencode "title=${title}" \
+            --data-urlencode "content=${content}")" \
+        || { echo "Server unreachable" >&2; return 1; }
+    [[ "${code}" == 200 ]] || { echo "Server returned HTTP $code" >&2; return 1; }
+}
 Handle_notes (){ 
     #make anyoption locally save the file and then encrypt these files;
     #when pushing delete all files and save them to the db
     #first create a backupdir
     
     mkdir -p "${BACKUP_DIR}" || {
-        echo "Unable to create backup directory: ${BACKUP_DIR}" >&2
-        return 1
+        echo "Unable to create backup directory: ${BACKUP_DIR}" >&2;
+        return 1;
     }
 
     while true; do
@@ -40,24 +48,16 @@ Handle_notes (){
          #New Note 
           read -rp "Enter the Name Of the Note: " name
           read -rp "Enter a New Note: " newnote
-          if [[ -n "${newnote}" ]] && [[ -n "${name}" ]]; then
+          name="${name//[^A-Za-z0-9._-]/_}"
+          if [[ -z "${newnote}" ]] || [[ -z "${name}" ]]; then
              #changed the architecture to have client and server side 
              #client will be using curl for sending requests over backend to psql server
-             echo "Sending Note To Server Daemon....."
-             response="$(curl -sS -X POST "${BACKEND_URL}" \
-                --data-urlencode "title=${name}" \
-                --data-urlencode "content=${newnote}")"
-
-             echo "Server Response: ${response}"
-             #now create a file and encrypt it
-             newfile="${BACKUP_DIR}/${name}.txt"
-             printf '%s\n' "${newnote}" > "${newfile}"
-             encrypt_localfiles "${newfile}"
-             return 0
-            else 
-                echo "new note cant' be empty!"
-                return 1
+             echo "Name and note(text) can't be empty!"; continue
             fi
+            echo "Sending note to server daemon....."
+            send_note "$name" "$newnote" || echo "warning: not saved on the server " >&2 
+            printf '%s\n' "${newnote}" > "${BACKUP_DIR}/${name}.txt"
+            encrypt_localfiles "${BACKUP_DIR}/${name}.txt"
          sleep 1
          ;; 
          2) 
@@ -67,30 +67,26 @@ Handle_notes (){
          #enter file name newfile
          #Update notes on the system  and push that to db
          read -rp "Enter the filename (note) to update " notename 
-            if [ -n "${notename}" ];then
+         notename="${notename//[^A-Za-z0-9._-]/_}"
+            #check wether the note name is empty 
+            [[ -z "${notename}" ]] && { echo "Note name can't be empty "; continue; }
                 #check wether the entered name of the file exists on the backupdir
                 agefile="${BACKUP_DIR}/${notename}"
                 if [ ! -f "${agefile}.txt.age" ]; then
                     echo "File doesnot exist on the path "
-                  else
-                    decryptedfile=$(decrypt_localfiles "${agefile}" || true)
+                    continue;
+                fi
+                    decryptedfile=$(decrypt_localfiles "${agefile}") || continue;
                     #Using 'vi' instead of 'vim' in the alpine container builds work 
-                    "${EDITOR:-vi}" "${decryptedfile}" || return 1
+                    "${EDITOR:-vi}" "${decryptedfile}" ||  { rm -f "${decryptedfile}" ; contunue ;} 
                     #re-encrypt after editing files
-                    encrypt_localfiles "${BACKUP_DIR}"/"${notename}.txt"
+                    content="$(cat "${decryptedfile}")"
+                    encrypt_local_fiiles "${decryptedfile}"
                     echo "Local: ${notename} re-encrypted successfully"
-                    #now call the server side work
-                    #TODO: 
-                    #Idea of scheduling the work to update after some time... maybe
-                    #schedule the note update as a background job using & symbol
-                    schedule_note_update "${decryptedfile}" &
-                  fi
-                else 
-                echo "Note name cant be null, Please enter Note Name correctly"
-                return 1
-            fi
-        sleep 1
-         ;;
+                    #scheduled note push to server using background jobs
+                    (sleep 120 ; send_note "${notename}" "${content}") &
+                    sleep 1
+                ;;
          3) read -rp "Retreive all the notes from the database " 
          #working on it...
          #list all the files from the backupdir
@@ -102,10 +98,15 @@ Handle_notes (){
          sleep 1
          ;;
         4)
+        echo "waiting for pending updates"
+        wait
          printf '%s\n' "Goodbye :)"
          break
           ;;
+        *) 
+        echo "choose [1-4]" ;;
     esac
+    sleep 1
   done
 }
 encrypt_localfiles (){ 
@@ -123,14 +124,14 @@ encrypt_localfiles (){
     fi
 
     #store the encryption public key into the variable and use that to encrypt the file
-    recipient="$(age-keygen -y -i "$privatekeyfile")"
+    recipient="$(age-keygen -y "$privatekeyfile")"
 
     if [[ ! -f "${targetfile}" ]]; then
-        printf 'Backup file not found : %s\n' "${newfile}"
+        printf 'Backup file not found : %s\n' "${targetfile}"
         return 1
     fi
     #encrypt the file using age
-    age -r "${recipient}" -o "${targetfile}.age" "${targetfile}"
+    age -r "${recipient}" -o "${targetfile}.age" "${targetfile}" && rm -f "${targetfile}"
     echo "Ecrypting Notes Completed Successfully"
 }
 decrypt_localfiles (){
@@ -138,25 +139,14 @@ decrypt_localfiles (){
     local encryptedfile=$1  #notename
     local plaintextfile="${encryptedfile}.txt"
     #add the decryption logic for decrypting the files
-    if [[ -f "${encryptedfile}.txt.age" ]]; then
+    if [[ ! -f "${encryptedfile}.txt.age" ]]; then
         printf 'Encrypted note not found: %s\n' "${encryptedfile}" >&2
         return 1
     fi
     age --decrypt \
     --identity "${privatekeyfile}" \
     --output "${plaintextfile}" \
-    "${encryptedfile}.txt.age"
+    "${encryptedfile}.txt.age" || return 1
 
     echo "${plaintextfile}"
-}
-schedule_note_update (){
-
-    local target_decrypted_file="$1"
-    sleep 120
-    local content
-    content="$(cat "${target_decrypted_file}")"
-
-    curl -sS -X POST "${BACKEND_URL}" \
-        --data-urlencode "action=update" \
-        --data-urlencode "content=${content}"
 }
