@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: devlog-db
+  name: devlog-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devlog-db
+  template:
+    metadata:
+      labels:
+        app: devlog-db
+    spec:
+      containers:
+      - name: devlog-db-image
+        image: devlog-db-image:latest
+        imagePullPolicy: Never
+        env:
+        - name: POSTGRES_USER
+          value: "devlog"
+        - name: POSTGRES_DB
+          value: "devlog"
+        - name: POSTGRES_PASSWORD
+          value: "*123#"
+        readinessProbe:
+          exec:
+            command: ["sh","-c","pg_isready","-h","localhost", "-p","5432"]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
