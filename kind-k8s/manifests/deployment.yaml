@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: devlog-client
+  name: devlog-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devlog-client
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: devlog-client
+    spec:
+      containers:
+      - image: devlog-client-image:latest
+        name: alpine
+        resources: {}
+status: {}
