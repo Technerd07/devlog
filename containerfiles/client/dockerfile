@@ -12,7 +12,8 @@
 
 FROM alpine:latest
 RUN apk update && apk add curl age bash socat 
-WORKDIR /client-app/
-COPY main.sh cli.sh backend.sh entrypoint.sh /client-app/
+ENV workdir=/client-app/work/
+WORKDIR ${workdir}
+COPY ./shellscripts/  ${workdir}
 RUN chmod +x *.sh
 CMD ["sleep","infinity"]
