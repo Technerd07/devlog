@@ -25,6 +25,9 @@ spec:
           value: "devlog"
         - name: POSTGRES_PASSWORD
           value: "*123#"
+        volumeMounts:
+          - name: postgres-storage
+            mountPath: /var/lib/postgresql/data
         readinessProbe:
           exec:
             command: ["pg_isready","-U","devlog","-h","localhost", "-p","5432"]
@@ -32,3 +35,7 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 3
           failureThreshold: 3
+      volumes:  
+        - name: postgres-storage
+          persistentVolumeClaim: 
+            claimName: postgres-pvc
