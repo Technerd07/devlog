@@ -29,4 +29,10 @@ spec:
           cpu: "2"
         limits:
            cpu: "2"
-status: {}
+      volumeMounts:
+        - name: devlog-client-pvc-claim
+          mountPath: /mnt/backupdir/
+      volumes:
+      - name: devlog-client-pvc-claim
+        persistentVolumeClaim: 
+         claimName: devlog-client-pvc
