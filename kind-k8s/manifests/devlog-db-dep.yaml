@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
       - name: devlog-db-image
-        image: devlog-db-image:latest
-        imagePullPolicy: Never
+        image: postgres:16-alpine
+        imagePullPolicy: Always
         env:
         - name: POSTGRES_USER
           value: "devlog"
@@ -27,7 +27,7 @@ spec:
           value: "*123#"
         readinessProbe:
           exec:
-            command: ["sh","-c","pg_isready","-h","localhost", "-p","5432"]
+            command: ["pg_isready","-U","devlog","-h","localhost", "-p","5432"]
           initialDelaySeconds: 5
           periodSeconds: 10
           timeoutSeconds: 3
