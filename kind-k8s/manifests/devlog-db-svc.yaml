@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: devlog-db-svc
+  name: devlog-db-svc
+spec:
+  ports:
+  - name: postgres-svc 
+    port: 5432
+    protocol: TCP
+    targetPort: 5432
+  selector:
+  #The selectior.app name must match the spec.template.metadata.labels.app name specified in deployment.yaml related to service
+    app: devlog-db
+  type: ClusterIP
+status:
+  loadBalancer: {}
