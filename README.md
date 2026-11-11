@@ -6,8 +6,6 @@ DevLog is a learning project for a small notes application built with Bash, Post
 
 ![DevLog demo (1:35–2:16)](docs/demo.gif)
 
-[Watch the full demo video](docs/demo.mov)
-
 ## Repository structure
 
 ```text
