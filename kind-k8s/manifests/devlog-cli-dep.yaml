@@ -16,7 +16,17 @@ spec:
         app: devlog-client
     spec:
       containers:
-      - image: devlog-client-image:latest
-        name: alpine
-        resources: {}
+      - name: alpine
+        image: devlog-client-image:latest
+        imagePullPolicy: Never 
+        env:
+         - name: DB_HOST 
+           value: "devlog-db-svc"
+        command: ["sleep","365d"]
+      resources: 
+        requests:
+          memory: "500m"
+          cpu: "2"
+        limits:
+           cpu: "2"
 status: {}
