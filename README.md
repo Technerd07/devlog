@@ -1,6 +1,6 @@
 # DevLog
 
-DevLog is a learning project for a small notes application built with Bash, PostgreSQL, and Age. The current prototype has an interactive shell client, a Bash HTTP backend, and a PostgreSQL schema. The next phase is to make the container setup reproducible and deploy it to Kubernetes.
+DevLog is a learning project for a small notes application built with Bash, PostgreSQL, and Age. It has an interactive shell client, a Bash HTTP backend, and a PostgreSQL schema. The application has been deployed and tested end to end on a local kind Kubernetes cluster.
 
 ## Demo
 
@@ -18,6 +18,14 @@ devlog/
 │   ├── cli.sh                      # Menu, HTTP client, local Age encryption
 │   ├── backend.sh                  # HTTP listener and PostgreSQL writes
 │   └── logs.sh                     # Logging helper
+├── kind-k8s/
+│   └── manifests/
+│       ├── devlog-cli-dep.yaml     # Client workload and client PVC mount
+│       ├── devlog-db-dep.yaml      # PostgreSQL workload and readiness probe
+│       ├── devlog-db-pvc.yaml      # PostgreSQL persistent volume claim
+│       ├── devlog-client-pvc.yaml  # Client persistent volume claim
+│       ├── devlog-db-svc.yaml      # Internal PostgreSQL Service
+│       └── notes.md               # Kubernetes implementation notes
 └── containerfiles/
     ├── README.md                   # Container workflow notes
     ├── client/
@@ -28,7 +36,7 @@ devlog/
         └── ref.txt                 # Backend container notes
 ```
 
-The shell scripts source sibling files by relative path, so run them from `shellscripts/`. Kubernetes manifests and deployment automation do not exist in the repository yet.
+The shell scripts source sibling files by relative path, so run them from `shellscripts/` or the corresponding working directory inside the container.
 
 ## Current prototype
 
@@ -37,35 +45,31 @@ The shell scripts source sibling files by relative path, so run them from `shell
 - The backend listens on port `9090` and uses `psql` to write notes to PostgreSQL.
 - `containerfiles/backend/schema.sql` defines the PostgreSQL notes table.
 
-The client retrieval and edit flows and the container packaging are still being developed. Review [containerfiles/README.md](containerfiles/README.md) and the Dockerfiles before building; the current paths and build instructions may need alignment with the `shellscripts/` layout.
+The client retrieval and edit flows are still being developed. Review [containerfiles/README.md](containerfiles/README.md) and the Dockerfiles for the current container setup.
 
-## Kubernetes roadmap
+## Kubernetes implementation
 
-### 1. Make container deployment reproducible
+The Kubernetes implementation is complete for the current local learning project and has been exercised end to end on kind. The client sends note requests to the backend, and the backend writes them to PostgreSQL through the database Service.
 
-Align image build contexts with the repository layout, install each service's runtime dependencies, externalize credentials, and document container networking and persistent volumes. Verify the client, backend, and database communicate through named services before moving to Kubernetes.
+- A client Deployment uses the locally built client image, resource requests and limits, and a PVC mounted for client files.
+- A PostgreSQL Deployment uses a readiness probe and a PVC mounted at the PostgreSQL data directory.
+- A `ClusterIP` Service named `devlog-db-svc` provides stable in-cluster discovery for PostgreSQL on port `5432`.
+- Local images are loaded into the kind node and inspected with the container runtime tools.
+- The backend connects to PostgreSQL using `DB_HOST=devlog-db-svc`; the client reaches the backend over `localhost:9090` while both scripts run in the client Pod.
+- Hands-on implementation and debugging observations are recorded in [kind-k8s/manifests/notes.md](kind-k8s/manifests/notes.md).
 
-### 2. Implement Kubernetes resources
+Apply the manifests from the repository root with:
 
-Add manifests for:
+```sh
+kubectl apply -f kind-k8s/manifests/devlog-db-pvc.yaml \
+  -f kind-k8s/manifests/devlog-db-dep.yaml \
+  -f kind-k8s/manifests/devlog-db-svc.yaml \
+  -f kind-k8s/manifests/devlog-client-pvc.yaml \
+  -f kind-k8s/manifests/devlog-cli-dep.yaml
+```
 
-- A backend Deployment and ClusterIP Service.
-- A PostgreSQL StatefulSet, Service, and PersistentVolumeClaim.
-- ConfigMaps for non-sensitive settings and Secrets for database credentials.
-- Optional ingress resources after the in-cluster service path is working.
-
-### 3. Deploy and validate on a manually managed cluster
-
-Document how to configure `kubectl` for a manually managed cluster, load or publish the required images, apply the manifests, and verify pod readiness, service discovery, database persistence, and note creation. Keep cluster-specific storage classes, image registries, and ingress settings configurable rather than assuming they match the local setup.
-
-### 4. Automate local-cluster testing
-
-Create a repeatable local workflow using kind as the initial target (with Minikube as an optional target). It should create or select the cluster, build and load images, apply the same Kubernetes manifests, wait for readiness, run smoke tests, and clean up test resources. This provides a quick regression check without replacing validation on the manually managed cluster.
-
-### 5. Add ingress and end-to-end checks
-
-Install or document an ingress controller for the chosen cluster, route a local hostname to the backend, and test the user-facing request path with `curl` and the CLI.
+The current setup is a local learning deployment. Credentials are still supplied directly in manifests/scripts, there is no Ingress, and the interactive client is run on demand in its Pod. Secrets, configuration management, and a repeatable deployment workflow can be added as a later hardening step.
 
 ## Requirements
 
-For shell and container development, use Bash, Age, `curl`, `socat`, the PostgreSQL client (`psql`), and Podman or Docker. Kubernetes work will additionally use `kubectl` and access to either a manually managed Kubernetes cluster or a local kind cluster; Minikube may be used as an alternative local cluster. Cluster creation, image loading, storage, and ingress steps differ by target and will be documented as the deployment workflow is implemented.
+For shell and container development, use Bash, Age, `curl`, `socat`, the PostgreSQL client (`psql`), and Podman or Docker. Kubernetes work uses `kubectl` and a local kind cluster; the images must be available to the kind node before applying workloads that use local images.
