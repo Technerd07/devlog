@@ -22,8 +22,13 @@ spec:
             - name: DB_HOST
               value: "devlog-db-svc"
           command:
-           - sleep
-           - inf
+           #- sleep
+           #- inf
+           #Instead of executing the shell to make itself sleep inf ;
+           #execute the command to run backend.sh as a background job process
+          - bash 
+          - backend.sh
+          - &
           resources:
             requests:
               memory: "500Mi"
