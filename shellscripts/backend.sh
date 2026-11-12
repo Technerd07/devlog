@@ -5,7 +5,7 @@ source logs.sh
 SERVER_PORT=9090
 DB_NAME="${DB_NAME:-devlog}"
 DB_USER="${DB_USER:-devlog}"
-DB_HOST="${DB_HOST:-devlog-db}"
+DB_HOST="${DB_HOST:-devlog-svc}"
 PG_PASSWORD="${PG_PASSWORD:-*123#}"
 #psql only reads the password from PGPASSWORD, so map our variable to it
 export PGPASSWORD="${PG_PASSWORD}"
