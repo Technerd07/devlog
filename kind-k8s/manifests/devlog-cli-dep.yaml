@@ -1,38 +1,40 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: devlog-client
   labels:
     app: devlog-client
-  name: devlog-client
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: devlog-client
-  strategy: {}
   template:
     metadata:
       labels:
         app: devlog-client
     spec:
       containers:
-      - name: alpine
-        image: devlog-client-image:latest
-        imagePullPolicy: Never 
-        env:
-         - name: DB_HOST 
-           value: "devlog-db-svc"
-        command: ["sleep","365d"]
-      resources: 
-        requests:
-          memory: "500m"
-          cpu: "2"
-        limits:
-           cpu: "2"
-      volumeMounts:
-        - name: devlog-client-pvc-claim
-          mountPath: /mnt/backupdir/
+        - name: devlog-client
+          image: devlog-client-image:latest
+          imagePullPolicy: Never
+          env:
+            - name: DB_HOST
+              value: "devlog-db-svc"
+          command:
+           - sleep
+           - inf
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: "1"
+            limits:
+              cpu: "1"
+              memory: "500Mi"
+          volumeMounts:
+            - name: devlog-client-pvc-claim
+              mountPath: /mnt/backupdir
       volumes:
-      - name: devlog-client-pvc-claim
-        persistentVolumeClaim: 
-         claimName: devlog-client-pvc
+        - name: devlog-client-pvc-claim
+          persistentVolumeClaim:
+            claimName: devlog-client-pvc
