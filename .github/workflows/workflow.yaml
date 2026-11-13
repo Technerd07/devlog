@@ -5,18 +5,42 @@ on:
   pull_request:
     branches: ["main"]
 jobs:
-  kind-image-loading-test:
+  Build-docker-images-and-verify-the-images:
     name: create cluster on kind
     runs-on: ubuntu-latest
     steps:
       - name: check repository
         uses: actions/checkout@v4
-     #first build docker images
+     #(docker stuff) first build docker images
       - name: build client and backend images
         run: |
-          docker build --no-cache -f containerfiles/client/dockerfile -t docker-client-image:latest .
-          docker build --no-cache -f containerfiles/backend/dockerfile -t docker-backend-image:latest .
+          docker build --no-cache -f containerfiles/client/dockerfile -t devlog-client-image:latest .
+          docker build --no-cache -f containerfiles/backend/dockerfile -t devlog-backend-image:latest .
       - name: check built docker-images
         run: | 
           docker image ls
-      
+  create-kind-cluster:
+    name: create cluster on kind and load docker images
+    runs-on: ubuntu-latest
+    steps:
+     - name: check repository
+       uses: actions/checkout@v4    
+       #create a new cluster
+     - name: create a new cluster using kind
+       run : |
+        kind create cluster --name devlog-cluster
+     - name: load docker images to kind
+       run : |
+        kind load docker-image devlog-client-image:latest --name devlog-cluster
+        kind load docker-image devlog-backend-image:latesst --name devlog-cluster
+  check-docker-images-using-crictl:
+    name: check docker images using crictl 
+    runs-on: ubuntu-latest
+    steps:
+     - name: check repository
+       uses: actions/checkout@v4
+      #check crictl images inside docker cluster container of kind
+     - name: run crictl images on devlog-cluster-control-plane container
+       run: |
+        docker exec devlog-cluster-control-plane crictl images
+         
