@@ -70,6 +70,16 @@ kubectl apply -f kind-k8s/manifests/devlog-db-pvc.yaml \
 
 The current setup is a local learning deployment. Credentials are still supplied directly in manifests/scripts, there is no Ingress, and the interactive client is run on demand in its Pod. Secrets, configuration management, and a repeatable deployment workflow can be added as a later hardening step.
 
+## Continuous integration and cloud deployment
+
+The next stage is to add a **GitHub Actions** workflow and move the deployment to Google Cloud:
+
+- Run shell-script and Kubernetes manifest validation on pushes and pull requests.
+- Build the application images and publish them to GitHub Container Registry (GHCR).
+- Deploy to Google Kubernetes Engine (GKE) after configuring a secure GitHub Actions identity and cluster access.
+
+GitHub Actions and GKE deployment are planned; the current verified deployment target is local kind.
+
 ## Requirements
 
 For shell and container development, use Bash, Age, `curl`, `socat`, the PostgreSQL client (`psql`), and Podman or Docker. Kubernetes work uses `kubectl` and a local kind cluster; the images must be available to the kind node before applying workloads that use local images.
