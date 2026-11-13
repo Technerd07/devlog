@@ -28,7 +28,7 @@ spec:
            #execute the command to run backend.sh as a background job process
           - bash 
           - backend.sh
-          - &
+          - "&"
           resources:
             requests:
               memory: "500Mi"
