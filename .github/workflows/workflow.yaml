@@ -11,8 +11,7 @@ jobs:
     steps:
       - name: check repository
         uses: actions/checkout@v4
-    #first build docker images
-    #build the client image
+     #first build docker images
       - name: build client and backend images
         run: |
           docker build --no-cache -f containerfiles/client/dockerfile -t docker-client-image:latest .
