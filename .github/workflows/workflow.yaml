@@ -16,4 +16,7 @@ jobs:
         run: |
           docker build --no-cache -f containerfiles/client/dockerfile -t docker-client-image:latest .
           docker build --no-cache -f containerfiles/backend/dockerfile -t docker-backend-image:latest .
+      - name: check built docker-images
+        run: | 
+          docker image ls
       
