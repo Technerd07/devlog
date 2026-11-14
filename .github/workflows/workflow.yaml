@@ -22,6 +22,7 @@ jobs:
       - name: save docker images to tar file
         run: |
           docker save devlog-client-image:latest devlog-backend-image:latest -o docker-images.tar
+        #upload artifact data of images
       - name: upload docker-images
         uses: actions/artifact@v4
         with:
@@ -37,6 +38,7 @@ jobs:
      - name: create a new cluster using kind
        run : |
         kind create cluster --name devlog-cluster
+      #download the artifact data of docker images
      - name: load docker images
        uses: actions/download-artifact@v4
        with: 
