@@ -19,6 +19,14 @@ jobs:
       - name: check built docker-images
         run: | 
           docker image ls
+      - name: save docker images to tar file
+        run: |
+          docker save devlog-client-image:latest devlog-backend-image:latest -o docker-images.tar
+      - name: upload docker-images
+        uses: actions/artifact@v4
+        with:
+          name: docker-images
+          path: docker-images.tar
   create-kind-cluster:
     name: create cluster on kind and load docker images
     runs-on: ubuntu-latest
@@ -29,6 +37,10 @@ jobs:
      - name: create a new cluster using kind
        run : |
         kind create cluster --name devlog-cluster
+     - name: load docker images
+       uses: actions/download-artifact@v4
+       with: 
+        name: docker-images
      - name: load docker images to kind
        run : |
         kind load docker-image devlog-client-image:latest --name devlog-cluster
