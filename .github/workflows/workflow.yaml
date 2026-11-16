@@ -60,4 +60,4 @@ jobs:
           kind load docker-image devlog-backend-image:latest --name devlog-cluster
 
       - name: check images using crictl
-        run: docker exec devlog-cluster-control-plane crictl images₹
+        run: docker exec devlog-cluster-control-plane crictl images
