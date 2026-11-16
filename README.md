@@ -11,6 +11,9 @@ DevLog is a learning project for a small notes application built with Bash, Post
 ```text
 devlog/
 ├── README.md
+├── .github/
+│   └── workflows/
+│       └── workflow.yaml           # Build images and verify loading them into kind
 ├── docs/
 │   |── demo.gif                    # Short animated preview
 ├── shellscripts/
@@ -70,15 +73,16 @@ kubectl apply -f kind-k8s/manifests/devlog-db-pvc.yaml \
 
 The current setup is a local learning deployment. Credentials are still supplied directly in manifests/scripts, there is no Ingress, and the interactive client is run on demand in its Pod. Secrets, configuration management, and a repeatable deployment workflow can be added as a later hardening step.
 
-## Continuous integration and cloud deployment
+## GitHub Actions workflow
 
-The next stage is to add a **GitHub Actions** workflow and move the deployment to Google Cloud:
+The repository includes a GitHub Actions workflow at [`.github/workflows/workflow.yaml`](.github/workflows/workflow.yaml). It runs on pushes to `main` and `workflows`, and on pull requests targeting `main`.
 
-- Run shell-script and Kubernetes manifest validation on pushes and pull requests.
-- Build the application images and publish them to GitHub Container Registry (GHCR).
-- Deploy to Google Kubernetes Engine (GKE) after configuring a secure GitHub Actions identity and cluster access.
+The workflow has two jobs:
 
-GitHub Actions and GKE deployment are planned; the current verified deployment target is local kind.
+1. **Build images:** checks out the repository, builds the client and backend container images, lists the images, saves them to a tar archive, and uploads that archive as a workflow artifact.
+2. **Create and verify kind cluster:** downloads the artifact, loads the images into Docker, creates a kind cluster, loads both images into its control-plane node, and checks the available images with `crictl`.
+
+This workflow execution completed successfully. It verifies that the images can be built and made available to a kind cluster in CI. The deployment described above remains a local kind setup; publishing images to GHCR and deploying to GKE are not part of this workflow yet.
 
 ## Requirements
 
