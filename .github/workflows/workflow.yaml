@@ -24,7 +24,7 @@ jobs:
           docker save devlog-client-image:latest devlog-backend-image:latest -o docker-images.tar
         #upload artifact data of images
       - name: upload docker-images
-        uses: actions/artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: docker-images
           path: docker-images.tar
