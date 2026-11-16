@@ -44,7 +44,9 @@ jobs:
        with: 
         name: docker-images
      - name: load docker images to kind
+        #before that verify wether the images are downloaded using the pointed artifact on the runner machine
        run : |
+        docker image ls
         kind load docker-image devlog-client-image:latest --name devlog-cluster
         kind load docker-image devlog-backend-image:latest --name devlog-cluster
   check-docker-images-using-crictl:
