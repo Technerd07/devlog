@@ -1,62 +1,63 @@
 name: load-docker-images-to-kind
 on:
   push:
-    branches: ["main","workflows"]
+    branches: ["main", "workflows"]
   pull_request:
     branches: ["main"]
+
 jobs:
-  Build-docker-images-and-verify-the-images:
-    name: create cluster on kind
+  build-images:
+    name: build and upload docker images
     runs-on: ubuntu-latest
     steps:
       - name: check repository
         uses: actions/checkout@v4
-     #(docker stuff) first build docker images
+
       - name: build client and backend images
         run: |
           docker build --no-cache -f containerfiles/client/dockerfile -t devlog-client-image:latest .
           docker build --no-cache -f containerfiles/backend/dockerfile -t devlog-backend-image:latest .
-      - name: check built docker-images
-        run: | 
-          docker image ls
+
+      - name: check built docker images
+        run: docker image ls
+
       - name: save docker images to tar file
-        run: |
-          docker save devlog-client-image:latest devlog-backend-image:latest -o docker-images.tar
-        #upload artifact data of images
-      - name: upload docker-images
+        run: docker save devlog-client-image:latest devlog-backend-image:latest -o docker-images.tar
+
+      - name: upload docker images
         uses: actions/upload-artifact@v4
         with:
           name: docker-images
           path: docker-images.tar
+          if-no-files-found: error
+
   create-kind-cluster:
-    name: create cluster on kind and load docker images
+    name: create kind cluster, load images, verify
+    needs: build-images
     runs-on: ubuntu-latest
     steps:
-     - name: check repository
-       uses: actions/checkout@v4    
-       #create a new cluster
-     - name: create a new cluster using kind
-       run : |
-        kind create cluster --name devlog-cluster
-      #download the artifact data of docker images
-     - name: load docker images
-       uses: actions/download-artifact@v4
-       with: 
-        name: docker-images
-     - name: load docker images to kind
-        #before that verify wether the images are downloaded using the pointed artifact on the runner machine
-       run : |
-        docker image ls
-        kind load docker-image devlog-client-image:latest --name devlog-cluster
-        kind load docker-image devlog-backend-image:latest --name devlog-cluster
-  check-docker-images-using-crictl:
-    name: check docker images using crictl 
-    runs-on: ubuntu-latest
-    steps:
-     - name: check repository
-       uses: actions/checkout@v4
-      #check crictl images inside docker cluster container of kind
-     - name: run crictl images on devlog-cluster-control-plane container
-       run: |
-        docker exec devlog-cluster-control-plane crictl images
-         
+      - name: check repository
+        uses: actions/checkout@v4
+
+      - name: download docker images
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images
+
+      - name: load tar into docker
+        run: |
+          docker load -i docker-images.tar
+          docker image ls
+
+      - name: create a new cluster using kind
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: devlog-cluster
+
+      - name: load docker images to kind
+        run: |
+          kind load docker-image devlog-client-image:latest --name devlog-cluster
+          kind load docker-image devlog-backend-image:latest --name devlog-cluster
+
+      - name: check images using crictl
+        run: docker exec devlog-cluster-control-plane crictl images₹
