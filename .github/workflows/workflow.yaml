@@ -46,7 +46,7 @@ jobs:
      - name: load docker images to kind
        run : |
         kind load docker-image devlog-client-image:latest --name devlog-cluster
-        kind load docker-image devlog-backend-image:latesst --name devlog-cluster
+        kind load docker-image devlog-backend-image:latest --name devlog-cluster
   check-docker-images-using-crictl:
     name: check docker images using crictl 
     runs-on: ubuntu-latest
